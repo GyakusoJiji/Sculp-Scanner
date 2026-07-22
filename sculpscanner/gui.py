@@ -228,7 +228,13 @@ class MainWindow(QMainWindow):
     def _do_connect(self):
         self.tree.clear()
         self._parts = []
+        self._mesh = None
+        self.preview.clear()
+        self.stats_label.setText("—")
         self.build_btn.setEnabled(False)
+        self.rebuild_btn.setEnabled(False)
+        self.save_btn.setEnabled(False)
+        self.ext_btn.setEnabled(False)
         self.progress.setValue(0)
         self.thread.connect_and_scan(
             self.url_edit.text().strip(),

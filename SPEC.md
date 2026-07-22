@@ -1,9 +1,18 @@
 # Sculp-Scanner 使い方・仕様書
 
-Chrome で開いた Honda の 360°ビュー（コンフィギュレータ）から、表示中の車両の 3D データを
+Chrome で開いた PlayCanvas 製の 360°ビュー（コンフィギュレータ）から、表示中の車両の 3D データを
 抽出して STL として保存するアプリケーションの、操作手順と内部仕様。
 
-- 対象: `https://www.honda.co.jp/<車種>/configurator/`（PlayCanvas 製の 360°ビュー）
+- 対象: `https://www.honda.co.jp/<車種>/configurator/`、`https://toyota.jp/<車種>/configurator/`、
+  `https://casper.hyundai.com/vehicles/making/model`（Hyundai Casper、韓国限定サブブランド）
+  （いずれも PlayCanvas 製の 360°ビュー。Toyota・Hyundai は実体が iframe 内のページだが、
+  本アプリは全フレームを探索するため無改造で対応できる）
+- 動作確認済み URL の一覧は [README.md「動作確認済みリンク集」](README.md#動作確認済みリンク集) を参照
+- 他メーカーの対応状況は [README.md「対応メーカー」](README.md#対応メーカー) を参照。
+  Lexus（連番写真方式、Toyota 系列だが別実装）・Subaru（独自 WebGL）・
+  Nissan/Mazda/Daihatsu/Suzuki/Mitsubishi（連番写真方式、実機で確認済み）・
+  BMW/Audi/Porsche/VW/JLR 等（ZeroLight 社のクラウドレンダリング）は
+  この方式では対応できない
 - 最終更新: 2026-07-22
 - 概要と要点は [README.md](README.md) を参照
 
@@ -381,15 +390,26 @@ GUI とはジョブキューと Qt シグナルでやり取りする。
 
 ## 10. 検証記録
 
-| 車種 | 接続経路 | パート | 三角形 | 出力寸法 (mm) | 実車諸元 (mm) |
-|---|---|---|---|---|---|
-| CIVIC | 自前 Chromium 起動 | 307 / 312 | 323,587 | 4568.9 × 2080.5 × **1423.7** | 4550 × 1800 × **1415** |
-| VEZEL | 既存 Chrome にアタッチ | 152 / 158 | 2,096,496 | 4387.9 × 2050.1 × **1582.4** | 4330 × 1790 × **1580** |
+| メーカー | 車種 | 接続経路 | パート | 三角形 | 出力寸法 (mm) | 実車諸元 (mm) |
+|---|---|---|---|---|---|---|
+| Honda | CIVIC | 自前 Chromium 起動 | 307 / 312 | 323,587 | 4568.9 × 2080.5 × **1423.7** | 4550 × 1800 × **1415** |
+| Honda | VEZEL | 既存 Chrome にアタッチ | 152 / 158 | 2,096,496 | 4387.9 × 2050.1 × **1582.4** | 4330 × 1790 × **1580** |
+| Toyota | RAV4 | 自前 Chromium 起動 | 2,183 / 2,190 | 2,455,060 | 未計測（`--list` のみで確認） | — |
+| Hyundai | CASPER | 自前 Chromium 起動 | 1,424 / 1,438 | 2,366,456 | 未計測（`--list` のみで確認） | — |
 
 - 全高がミリ単位で一致しており、単位倍率と軸変換が正しいことを裏付けている
 - 幅が諸元より広いのは**ドアミラーを含む全幅**のため
 - 背景 5〜6 パートが自動除外されていることを一覧で確認済み
 - 出力 STL を VTK で描画し、ホイール・ミラー・グリル等が正しい形状であることを目視確認済み
+- Toyota (RAV4) は `toyota.jp/rav4/configurator/`（実体は iframe 内の PlayCanvas ページ）から
+  無改造でメッシュインスタンス 2,190 個を検出し、`background`/`wall`/`romen`（路面）を含む
+  パートが既定の除外パターンで正しく除外されることを `--list` で確認済み。
+  STL 出力・寸法までは未検証
+- Hyundai Casper (CASPER) は `casper.hyundai.com/vehicles/making/model`
+  （実体は iframe 内の PlayCanvas ページ）から無改造でメッシュインスタンス 1,438 個を検出。
+  背景 (`BackGround/Studio/Box`) は既定の除外パターンで正しく除外された一方、
+  **インテリアのフロアマットパート (`I_FLOOR/...`) が `floor` パターンに誤って一致し、
+  意図せず除外される既知の問題を発見**（`README.md`「注意」参照）。STL 出力・寸法までは未検証
 
 ---
 
@@ -402,7 +422,8 @@ GUI とはジョブキューと Qt シグナルでやり取りする。
 | 内装 | 内装メッシュもシーンに含まれる場合がある。不要ならツリーで外す |
 | 対応範囲 | PlayCanvas 製ページに限る。連番画像方式の 360°ビューには対応しない |
 | 追従性 | ページ側の実装（PlayCanvas のバージョンや命名）が変わると調整が必要。想定構造は `extract_js.py` の冒頭コメントに記載 |
-| 権利 | 出力形状は **Honda の著作物**。個人的な検証・学習用途に留め、再配布・商用利用はしないこと |
+| 除外パターンの誤検知 | メーカーによっては命名規則の都合で既定の除外パターンが実パーツに誤って一致することがある（例: Hyundai Casper の `I_FLOOR/...`）。GUI ならツリーで手動チェック、CLI なら `--include-background` か `DEFAULT_EXCLUDE_PATTERN` の調整で対処 |
+| 権利 | 出力形状は各メーカー（Honda・Toyota・Hyundai 等）の著作物。個人的な検証・学習用途に留め、再配布・商用利用はしないこと |
 
 ---
 

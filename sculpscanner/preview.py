@@ -93,6 +93,16 @@ class PreviewWidget(QWidget):
         self._renderer.ResetCamera()
         self._vtk.GetRenderWindow().Render()
 
+    def clear(self):
+        """表示中のメッシュを消して空の状態に戻す。"""
+        self._mesh = None
+        if self._vtk is None:
+            return
+        if self._actor is not None:
+            self._renderer.RemoveActor(self._actor)
+            self._actor = None
+        self._vtk.GetRenderWindow().Render()
+
     def show_external(self):
         """埋め込みが使えない／もっと大きく見たいとき用の別ウィンドウ表示。"""
         if self._mesh is None:
